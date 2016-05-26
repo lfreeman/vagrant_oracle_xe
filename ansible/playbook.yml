@@ -104,12 +104,19 @@
       file: src=/usr/bin/awk path=/bin/awk state=link
     - name: install oracle xe
       environment: 
-        ORACLE_BASE: /u01/app/oracle
+        ORACLE_BASE: "{{ oracle_base }}"
         ORACLE_SID: XE
-        ORACLE_HOME: /u01/app/oracle/product/11.2.0/xe
+        ORACLE_HOME: "{{oracle_home}}"
         NLS_LANG: AMERICAN_AMERICA.AL32UTF8
-        PATH: /u01/app/oracle/product/11.2.0/xe:{{ ansible_env.PATH }}
+        PATH: "{{oracle_home}}:{{ ansible_env.PATH }}"
       apt: deb={{oracle_disk}}/{{oracle_xe_name}}.deb state=present
+
+    - name: set max users processes
+      lineinfile:
+        dest: "{{ oracle_home }}/config/scripts/init.ora"
+        state: present
+        regexp: "^processes="
+        line: "processes=200"
 
     - name: configure oracle-xe
       shell: /etc/init.d/oracle-xe configure responseFile={{ oracle_tmp }}/xe.rsp >> {{ oracle_tmp }}/xe-install.log

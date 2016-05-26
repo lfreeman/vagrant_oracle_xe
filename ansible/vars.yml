@@ -1,6 +1,8 @@
 ---
 
 oracle_path: /u01/app
+oracle_base: "{{ oracle_path }}/oracle"
+oracle_home: "{{ oracle_base }}/product/11.2.0/xe"
 oracle_db_name: XE
 oracle_tmp: /vagrant/data
 oracle_temp: /vagrant/data
@@ -8,8 +10,8 @@ oracle_disk: "{{oracle_temp}}/Disk1"
 oracle_xe_name: oracle-xe-11.2.0-1.0.x86_64
 # shell environment for the oracle user
 ora_user_env:
-  ORACLE_BASE: "{{ oracle_path }}/oracle"
+  ORACLE_BASE: "{{ oracle_base }}"
   ORACLE_SID: "{{ oracle_db_name }}"
-  ORACLE_HOME: "{{ oracle_path }}/oracle/product/11.2.0/xe"
+  ORACLE_HOME: "{{ oracle_home }}"
   NLS_LANG: "AMERICAN_AMERICA.AL32UTF8"
 oracle_password: manager
