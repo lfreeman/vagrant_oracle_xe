@@ -55,15 +55,15 @@
       file: path={{oracle_temp}} state=directory mode=0775
 
     - name: unzip oracle xe rpm
-      unarchive: src=/vagrant/ansible/files/{{oracle_xe_name}}.rpm.zip
+      unarchive: src=/vagrant/ansible/files/{{oracle_xe_rpm}}.zip
         dest={{oracle_temp}}
         copy=no
-        creates={{oracle_disk}}/{{oracle_xe_name}}.rpm    
+        creates={{oracle_disk}}/{{oracle_xe_rpm}}
 
     - name: create oracle xe deb package
-      command: alien --scripts --to-deb {{oracle_disk}}/{{oracle_xe_name}}.rpm
+      command: alien --scripts --to-deb {{oracle_disk}}/{{oracle_xe_rpm}}
         chdir={{oracle_disk}}
-        creates={{oracle_disk}}/{{oracle_xe_name}}.deb
+        creates={{oracle_disk}}/{{oracle_xe_deb}}
 
     - name: xe.rsp
       template:
@@ -109,7 +109,7 @@
         ORACLE_HOME: "{{oracle_home}}"
         NLS_LANG: AMERICAN_AMERICA.AL32UTF8
         PATH: "{{oracle_home}}:{{ ansible_env.PATH }}"
-      apt: deb={{oracle_disk}}/{{oracle_xe_name}}.deb state=present
+      apt: deb={{oracle_disk}}/{{oracle_xe_deb}} state=present
 
     - name: set max users processes
       lineinfile:

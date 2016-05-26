@@ -7,7 +7,8 @@ oracle_db_name: XE
 oracle_tmp: /vagrant/data
 oracle_temp: /vagrant/data
 oracle_disk: "{{oracle_temp}}/Disk1"
-oracle_xe_name: oracle-xe-11.2.0-1.0.x86_64
+oracle_xe_rpm: oracle-xe-11.2.0-1.0.x86_64.rpm
+oracle_xe_deb: oracle-xe_11.2.0-2_amd64.deb
 # shell environment for the oracle user
 ora_user_env:
   ORACLE_BASE: "{{ oracle_base }}"
