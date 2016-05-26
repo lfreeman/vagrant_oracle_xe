@@ -1,0 +1,6 @@
+.vagrant
+*.zip
+*.swp
+data
+**/playbook.retry
+

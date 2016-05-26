@@ -1,0 +1,128 @@
+---
+- hosts: all
+  sudo: True
+  vars_files:
+  - vars.yml
+
+  tasks:
+
+    - name: check if oracle has already been installed
+      stat: path=/etc/oratab
+      register: oracle_installed
+
+    - name: install apt packages
+      apt: name={{item}} update_cache=yes cache_valid_time=3600
+      with_items:
+        - alien
+        - bc
+        - libaio1
+        - unixodbc
+        - unzip
+        - rlwrap
+        - dos2unix
+
+    - name: check swap_file exists
+      stat: path=/swapfile
+      register: swap_file
+
+    - name: write swapfile
+      command: dd if=/dev/zero of=/swapfile bs=1024 count=1048576 creates=/swapfile
+      register: write_swapfile
+      when: not swap_file.stat.exists
+
+    - name: create swapfile
+      command: mkswap /swapfile
+      register: create_swapfile
+      when: write_swapfile.changed
+
+    - name: enable swapfile
+      command: swapon /swapfile
+      when: create_swapfile.changed
+
+    - name: add swapfile to /etc/fstab
+      lineinfile: dest=/etc/fstab line="/swapfile swap swap defaults 0 0" state=present
+
+    - name: set oracle user environment
+      lineinfile: dest=/home/vagrant/.bashrc state=present line="{{ item }}"
+      with_items:
+        - "export ORACLE_BASE={{ ora_user_env.ORACLE_BASE }}"
+        - "export ORACLE_SID={{ ora_user_env.ORACLE_SID }}"
+        - "export ORACLE_HOME={{ ora_user_env.ORACLE_HOME }}"
+        - "export PATH=$ORACLE_HOME/bin:$PATH"
+        - "export NLS_LANG={{ ora_user_env.NLS_LANG }}"
+
+    - name: create directory
+      file: path={{oracle_temp}} state=directory mode=0775
+
+    - name: unzip oracle xe rpm
+      unarchive: src=/vagrant/ansible/files/{{oracle_xe_name}}.rpm.zip
+        dest={{oracle_temp}}
+        copy=no
+        creates={{oracle_disk}}/{{oracle_xe_name}}.rpm    
+
+    - name: create oracle xe deb package
+      command: alien --scripts --to-deb {{oracle_disk}}/{{oracle_xe_name}}.rpm
+        chdir={{oracle_disk}}
+        creates={{oracle_disk}}/{{oracle_xe_name}}.deb
+
+    - name: xe.rsp
+      template:
+        src: xe.rsp.j2
+        dest: "{{ oracle_tmp }}/xe.rsp"
+
+    - name: copy chkconfig
+      copy: src=files/chkconfig dest={{ oracle_tmp }}/chkconfig mode=0775
+    - name: copy S01shm_load
+      copy: src=files/S01shm_load dest={{ oracle_tmp }}/S01shm_load mode=0775
+      register: shm_load
+    - name: copy 60-oracle
+      copy: src=files/60-oracle.conf dest={{ oracle_tmp }}/60-oracle.conf mode=0775
+    - name: dos2unix chkconfig
+      command: /usr/bin/dos2unix -n {{ oracle_tmp }}/chkconfig /sbin/chkconfig
+        creates=/sbin/chkconfig
+    - name: dos2unix S01shm_load
+      command: /usr/bin/dos2unix -n {{ oracle_tmp }}/S01shm_load /etc/rc2.d/S01shm_load
+        creates=/etc/rc2.d/S01shm_load
+    - name: dos2unix 60-oracle
+      command: /usr/bin/dos2unix -n {{ oracle_tmp }}/60-oracle.conf /etc/sysctl.d/60-oracle.conf
+        creates=/etc/sysctl.d/60-oracle.conf
+      register: oracle_sysctl
+
+    - name: start procps service to apply new sysctl settings
+      service: name=procps state=started
+      when: oracle_sysctl.changed
+
+    - name: check /dev/shm exists
+      stat: path=/dev/shm
+      register: shm
+
+    - name: run S01shm_load
+      command: /etc/rc2.d/S01shm_load start
+      when: not oracle_installed.stat.exists
+
+    - name: setup awk the redhat way
+      file: src=/usr/bin/awk path=/bin/awk state=link
+    - name: install oracle xe
+      environment: 
+        ORACLE_BASE: /u01/app/oracle
+        ORACLE_SID: XE
+        ORACLE_HOME: /u01/app/oracle/product/11.2.0/xe
+        NLS_LANG: AMERICAN_AMERICA.AL32UTF8
+        PATH: /u01/app/oracle/product/11.2.0/xe:{{ ansible_env.PATH }}
+      apt: deb={{oracle_disk}}/{{oracle_xe_name}}.deb state=present
+
+    - name: configure oracle-xe
+      shell: /etc/init.d/oracle-xe configure responseFile={{ oracle_tmp }}/xe.rsp >> {{ oracle_tmp }}/xe-install.log
+      register: configure_oracle
+      when: not oracle_installed.stat.exists
+
+    - name: set oracle to autostart
+      lineinfile:
+        dest: /etc/oratab
+        state: present
+        regexp: "^{{ oracle_db_name }}"
+        line: "{{ oracle_db_name }}:{{ ora_user_env.ORACLE_HOME }}:Y"
+
+    - name: restart oracle-xe
+      service: name=oracle-xe state=restarted  enabled=yes
+      when: configure_oracle.changed
